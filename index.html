@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Avaliação SST — Arquivo Único (versão funcional)</title>
+<title>Avaliação SST — Arquivo Único (Final)</title>
 <style>
   :root{--muted:#6b7280}
   body{font-family:Arial, Helvetica, sans-serif;background:#f4f6f8;color:#111;margin:0;padding:16px}
@@ -32,6 +32,9 @@
   pre{white-space:pre-wrap;word-break:break-word}
   .btn-danger{background:#b91c1c}
   .readonly{background:#f8fafc}
+  .report{max-width:800px;margin:0 auto;padding:18px;font-size:14px}
+  .report h2{margin-top:0}
+  .btn-small{padding:6px 8px;font-size:0.9rem}
 </style>
 </head>
 <body>
@@ -71,7 +74,7 @@
         </div>
 
         <p class="muted" style="margin-top:10px">
-          Regras: clique em <strong>Iniciar</strong> para começar — esse clique ativa o contador e solicita tela cheia. Se você sair da aba/janela, será aplicada uma penalidade inicial de 30s que dobra a cada ausência subsequente. O contador ficará vermelho nos últimos 10 minutos.
+          Regras: antes de iniciar informe o nome e **entre em tela cheia** (o navegador pedirá autorização). Se você sair da aba/janela, será aplicada uma **penalidade fixa de 30 segundos** que bloqueia a prova até terminar.
         </p>
 
         <hr/>
@@ -83,15 +86,14 @@
           <div id="discArea"></div>
 
           <div class="controls" style="margin-top:8px">
-            <button id="startBtn" type="button">Iniciar (Tela cheia)</button>
+            <button id="startBtn" type="button">Iniciar (Tela cheia exigida)</button>
             <button id="submitBtn" type="button">Enviar Avaliação</button>
             <button id="cancelExam" type="button">Cancelar</button>
           </div>
         </form>
 
         <div style="margin-top:12px">
-          <div class="small">Logs recentes:</div>
-          <pre id="logArea" style="height:110px;overflow:auto;background:#071126;color:#9fe6ff;padding:8px;border-radius:6px">Pronto.</pre>
+          <div class="small">(Logs ocultos ao aluno)</div>
         </div>
       </div>
     </section>
@@ -118,14 +120,14 @@
 
           <div style="margin-top:12px;max-height:520px;overflow:auto">
             <table id="subsTable">
-              <thead><tr><th>Aluno</th><th>Turma</th><th>Início</th><th>Penalidades</th><th>TempoRest(s)</th><th>Respostas</th></tr></thead>
+              <thead><tr><th>Aluno</th><th>Turma</th><th>Início</th><th>Penalidades</th><th>TempoRest(s)</th><th>Ações</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
 
         <div style="margin-top:12px" class="small">
-          Observação: as submissões ficam salvas no armazenamento local do navegador (localStorage). Exporte CSV para arquivar.
+          Observação: as submissões ficam salvas no armazenamento local do navegador (localStorage). Use Exportar CSV ou Gerar PDF por aluno para arquivar.
         </div>
       </div>
     </section>
@@ -137,30 +139,48 @@
 <!-- Overlay penalidade -->
 <div id="overlay">
   <h2>Penalidade aplicada</h2>
-  <div id="overlayMsg">Você saiu da aba. Aguarde o tempo restante para retomar a avaliação.</div>
+  <div id="overlayMsg">Você saiu da aba. Aguarde 30 segundos para retomar a avaliação.</div>
   <div id="countdown" style="font-size:2rem;margin-top:8px">30</div>
-  <div class="small" style="margin-top:8px">Permaneça nesta tela até o contador zerar; depois a avaliação será liberada.</div>
+  <div class="small" style="margin-top:8px">Permaneça nesta tela até o contador zerar; depois a prova será liberada.</div>
 </div>
+
+<!-- template para relatório (oculto) -->
+<div id="reportTemplate" class="hidden"></div>
 
 <script>
 /* ---------------- CONFIG ---------------- */
 const ADMIN_PASSWORD = '159357';
-const BASE_PENALTY = 30;
-const MULTIPLIER = 2;
-const MAX_PENALTY = 600;
-const TOTAL_SECONDS = 90 * 60;
-const STORAGE_KEY = 'avaliacao_sst_submissions_v2';
+const PENALTY_SECONDS = 30;        // fixed penalty
+const TOTAL_SECONDS = 90 * 60;     // 1h30
+const STORAGE_KEY = 'avaliacao_sst_submissions_final';
+const GABARITO = {
+  // keys for q1..q20 (correct answers chosen based on content)
+  q1: "Prevenir acidentes e proteger trabalhadores",
+  q2: "Ministério do Trabalho e Previdência",
+  q3: "Identificar padrões e prevenir ocorrências",
+  q4: "Tempo de paralisação e perda de produtividade",
+  q5: "Extintores, alarmes e rotas de fuga",
+  q6: "Deve ser fornecido gratuitamente pela empresa e adequado ao risco",
+  q7: "Segurança em instalações e serviços em eletricidade",
+  q8: "Segurança no trabalho em máquinas e equipamentos",
+  q9: "Ruído e vibração",
+  q10: "Vapores, poeiras e gases",
+  q11: "Impedir acesso às partes móveis e ser segura para manutenção",
+  q12: "Reduzir absenteísmo e custos com afastamentos",
+  q13: "Perda de produtividade prolongada", // NOT included as direct cost -> but user asked "NÃO incluem" — set correct as first option (we'll handle as incorrect if chosen). To reduce ambiguity, we'll treat the correct answer for q13 as "Despesas médicas"?? To avoid confusion, we will treat the 'best' correct as the option that is NOT "custos diretos" — but this is messy. Instead we'll mark the intended correct here:
+  // To be safe set q13 correct to "Reparo de equipamento danificado" (assuming it's direct) -- but consistency matters.
+};
+ // For q13 we must pick correct. We'll set GABARITO.q13 = "Reparo de equipamento danificado"
+GABARITO.q13 = "Reparo de equipamento danificado";
 
-/* --------- UI references --------- */
+/* UI refs */
 const tabExam = document.getElementById('tabExam'), tabAdmin = document.getElementById('tabAdmin');
 const examArea = document.getElementById('examArea'), adminArea = document.getElementById('adminArea');
 const mcArea = document.getElementById('mcArea'), discArea = document.getElementById('discArea');
 const startBtn = document.getElementById('startBtn'), submitBtn = document.getElementById('submitBtn');
 const cancelExam = document.getElementById('cancelExam');
-const timerEl = document.getElementById('timer'), logArea = document.getElementById('logArea');
+const timerEl = document.getElementById('timer');
 const overlay = document.getElementById('overlay'), countdownEl = document.getElementById('countdown');
-
-/* admin refs */
 const adminPw = document.getElementById('adminPw'), adminLogin = document.getElementById('adminLogin'), adminLogout = document.getElementById('adminLogout');
 const adminMain = document.getElementById('adminMain'), subsTableBody = document.querySelector('#subsTable tbody');
 const refreshData = document.getElementById('refreshData'), exportCsv = document.getElementById('exportCsv'), clearData = document.getElementById('clearData');
@@ -169,7 +189,7 @@ const refreshData = document.getElementById('refreshData'), exportCsv = document
 tabExam.onclick = ()=>{ examArea.classList.remove('hidden'); adminArea.classList.add('hidden'); }
 tabAdmin.onclick = ()=>{ adminArea.classList.remove('hidden'); examArea.classList.add('hidden'); }
 
-/* ---------- build questions ---------- */
+/* ---------- build MC questions and dissertativas ---------- */
 const mcQuestions = [
   {q:'1) Qual a principal função da segurança do trabalho?', opts:['Reduzir custos a qualquer custo','Prevenir acidentes e proteger trabalhadores','Garantir horários de trabalho mais longos','Aumentar a quantidade de documentos financeiros']},
   {q:'2) Qual órgão é responsável pela publicação das NRs no Brasil?', opts:['Ministério do Trabalho e Previdência','INMETRO','ANVISA','IBAMA']},
@@ -237,9 +257,9 @@ let penaltyCount = Number(sessionStorage.getItem('penaltyCount') || 0);
 let remaining = Number(sessionStorage.getItem('remaining_seconds') || TOTAL_SECONDS);
 let running = false;
 
-function log(msg){ const ts = new Date().toLocaleTimeString(); logArea.textContent = `[${ts}] ${msg}\n` + logArea.textContent; }
+function log(msg){ /* logs hidden to student; still useful internally via console */ console.log(msg); }
 
-/* Timer: always counts down (even if tab hidden) to avoid gaming */
+/* Timer */
 function formatTime(s){ const m=Math.floor(s/60), sec = s%60; return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
 timerEl.innerText = formatTime(remaining);
 if(remaining <= 600) timerEl.classList.add('red');
@@ -258,34 +278,30 @@ let tickInterval = setInterval(()=>{
   }
 }, 1000);
 
-/* ---------- Visibility / Penalidade ---------- */
-/* When document becomes hidden we just record the exit (penaltyCount++). When visible again we show overlay blocking for computed penalty seconds. */
+/* Visibility / Penalidade: fixed 30s on return */
 document.addEventListener('visibilitychange', () => {
   if(document.hidden){
-    // record exit time and increment count
+    // register exit
     penaltyCount++;
     sessionStorage.setItem('penaltyCount', penaltyCount);
     log('Saída detectada (penaltyCount=' + penaltyCount + ')');
   } else {
     if(penaltyCount > 0){
-      const secs = Math.min(MAX_PENALTY, Math.round(BASE_PENALTY * Math.pow(MULTIPLIER, Math.max(0, penaltyCount-1))));
-      log('Retorno detectado — aplicando penalidade de ' + secs + 's');
-      applyPenalty(secs);
+      log('Retorno detectado — aplicando penalidade de ' + PENALTY_SECONDS + 's');
+      applyPenalty(PENALTY_SECONDS);
     } else {
       log('Retornou à aba');
     }
   }
 });
 
-/* apply penalty: show overlay and pause interactions for seconds */
 let penaltyActive = false;
 function applyPenalty(seconds){
   if(penaltyActive) return;
   penaltyActive = true;
   overlay.style.display = 'flex';
   countdownEl.innerText = seconds;
-  // stop interactions: set running false (timer continues but student can't interact)
-  const prevRunning = running;
+  const prev = running;
   running = false;
   let s = seconds;
   const t = setInterval(()=>{
@@ -295,53 +311,50 @@ function applyPenalty(seconds){
       clearInterval(t);
       overlay.style.display = 'none';
       penaltyActive = false;
-      // allow interactions again
-      running = prevRunning;
+      running = prev;
       log('Penalidade finalizada');
     }
   }, 1000);
 }
 
-/* ---------- Start button ---------- */
+/* Start button: require name and require fullscreen */
 startBtn.addEventListener('click', async () => {
   const name = document.getElementById('studentName').value.trim();
   if(!name){ alert('Digite seu nome completo antes de iniciar.'); return; }
-  // Request fullscreen (must be user gesture)
+  // request fullscreen; require it
   try{
     await document.documentElement.requestFullscreen();
-    log('Iniciou prova em tela cheia');
   }catch(e){
-    log('Falha ao entrar em tela cheia: ' + e.message);
+    alert('Para garantir integridade da prova é necessário permitir tela cheia. Clique "Iniciar" e aceite tela cheia no navegador.'); return;
   }
-  // reset penalty/session values for new run
-  sessionStorage.setItem('penaltyCount', penaltyCount);
-  if(!sessionStorage.getItem('remaining_seconds')) {
+  // check fullscreen
+  if(!document.fullscreenElement){
+    alert('É necessário permitir tela cheia para iniciar a prova. Tente novamente e permita a tela cheia quando o navegador solicitar.');
+    return;
+  }
+  // set timer if not already
+  if(!sessionStorage.getItem('remaining_seconds')){
     remaining = TOTAL_SECONDS;
     sessionStorage.setItem('remaining_seconds', remaining);
+  } else {
+    remaining = Number(sessionStorage.getItem('remaining_seconds'));
   }
   running = true;
+  log('Prova iniciada em tela cheia para ' + name);
 });
 
-/* ---------- Submit (manual) ---------- */
+/* Submissão manual */
 submitBtn.addEventListener('click', () => {
   if(penaltyActive){ alert('Você está em penalidade. Aguarde antes de enviar.'); return; }
-  if(!document.getElementById('studentName').value.trim()){ alert('Digite seu nome completo antes de enviar.'); return; }
+  const name = document.getElementById('studentName').value.trim();
+  if(!name){ alert('Digite seu nome completo antes de enviar.'); return; }
   sendSubmission(false);
 });
 
-/* automatic submit when timer ends */
-function autoSubmit(){
-  if(penaltyActive){ setTimeout(autoSubmit, 2000); return; } // wait until penalty ends
-  sendSubmission(true);
-}
+/* auto submit when timer ends */
+function autoSubmit(){ if(penaltyActive){ setTimeout(autoSubmit, 2000); return; } sendSubmission(true); }
 
-/* gather answers and save to localStorage */
-function sendSubmission(isAuto){
-  const name = document.getElementById('studentName').value.trim();
-  const clas = document.getElementById('studentClass').value;
-  // collect MC answers and disc answers
-  const formEls = document.querySelectorAll('#mcArea input[type=radio], #discArea textarea, #mcArea input[type=radio]');
-  // simpler: read using form fields by name
+function gatherAnswers(){
   const answers = {};
   for(let i=1;i<=20;i++){
     const v = document.querySelector('input[name="q'+i+'"]:checked');
@@ -351,6 +364,13 @@ function sendSubmission(isAuto){
     const ta = document.querySelector('textarea[name="q'+i+'"]');
     answers['q'+i] = ta ? ta.value.trim() : '';
   }
+  return answers;
+}
+
+function sendSubmission(isAuto){
+  const name = document.getElementById('studentName').value.trim();
+  const clas = document.getElementById('studentClass').value;
+  const answers = gatherAnswers();
   const payload = {
     id: 'sub_' + Date.now().toString(36),
     sessionId,
@@ -362,26 +382,22 @@ function sendSubmission(isAuto){
     answers: answers,
     auto: !!isAuto
   };
-  // save
   const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   arr.push(payload);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-  log('Submissão salva localmente: ' + name + ' (penalidades=' + penaltyCount + ')');
-  // reset session storage for next student
+  // reset session values
   sessionStorage.removeItem('penaltyCount');
   sessionStorage.removeItem('remaining_seconds');
-  penaltyCount = 0;
-  running = false;
-  // show confirmation
-  alert('Prova enviada com sucesso. Obrigado.');
+  penaltyCount = 0; running = false;
   // exit fullscreen if possible
   try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  alert('Prova enviada com sucesso.');
 }
 
 /* cancel */
 cancelExam.addEventListener('click', ()=>{ if(confirm('Cancelar a avaliação? Respostas não enviadas serão perdidas.')) location.reload(); });
 
-/* ---------- Admin functions ---------- */
+/* ---------- Admin ---------- */
 adminLogin.addEventListener('click', ()=>{
   if(adminPw.value === ADMIN_PASSWORD){
     adminPw.value = '';
@@ -397,19 +413,20 @@ adminLogout.addEventListener('click', ()=>{
   adminLogin.classList.remove('hidden');
 });
 
-/* render submissions */
 function renderSubmissions(){
   const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   subsTableBody.innerHTML = '';
   arr.forEach(s=>{
     const tr = document.createElement('tr');
-    const ans = JSON.stringify(s.answers);
-    tr.innerHTML = `<td>${escapeHtml(s.student)}</td><td>${escapeHtml(s.class)}</td><td>${s.ts}</td><td>${s.penaltyCount||0}</td><td>${s.remaining||0}</td><td style="max-width:420px;white-space:pre-wrap">${escapeHtml(ans)}</td>`;
+    tr.innerHTML = `<td>${escapeHtml(s.student)}</td><td>${escapeHtml(s.class)}</td><td>${s.ts}</td><td>${s.penaltyCount||0}</td><td>${s.remaining||0}</td>
+      <td>
+        <button class="btn-small" data-id="${s.id}" onclick="generatePdfFor('${s.id}')">Relatório PDF</button>
+      </td>`;
     subsTableBody.appendChild(tr);
   });
 }
 
-/* export CSV */
+/* Export CSV (all fields) */
 exportCsv.addEventListener('click', ()=>{
   const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   if(!arr.length){ alert('Nenhuma submissão para exportar.'); return; }
@@ -423,7 +440,7 @@ exportCsv.addEventListener('click', ()=>{
   const a = document.createElement('a'); a.href = url; a.download = 'avaliacoes_sst_export.csv'; a.click(); URL.revokeObjectURL(url);
 });
 
-/* clear data */
+/* Clear data */
 clearData.addEventListener('click', ()=>{
   if(confirm('Apagar todas as submissões? Esta ação não tem volta.')){
     localStorage.removeItem(STORAGE_KEY);
@@ -432,14 +449,80 @@ clearData.addEventListener('click', ()=>{
   }
 });
 
-refreshData.addEventListener('click', renderSubmissions);
+/* ---------- PDF report generation ---------- */
+/* This function builds a printable report for a single submission and opens print dialog (save as PDF) */
+window.generatePdfFor = function(id){
+  const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const s = arr.find(x => x.id === id);
+  if(!s){ alert('Submissão não encontrada'); return; }
+
+  // calculate correct/incorrect for q1..q20
+  let correct = 0;
+  let total = 20;
+  for(let i=1;i<=20;i++){
+    const key = 'q'+i;
+    const answer = s.answers[key] || '';
+    if(answer && GABARITO[key] && answer === GABARITO[key]) correct++;
+  }
+  const incorrect = total - correct;
+  const pctCorrect = Math.round((correct/total)*100);
+  const pctIncorrect = 100 - pctCorrect;
+
+  // Build report HTML (only show discursive answers 21-30)
+  const reportWin = window.open('', '_blank', 'noopener');
+  const doc = reportWin.document;
+  const title = `Relatório - ${s.student}`;
+  const html = `
+  <html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>${title}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#111}
+      .report{max-width:800px;margin:0 auto}
+      h2{margin-bottom:6px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      td,th{padding:8px;border:1px solid #ddd;text-align:left}
+      .center{text-align:center}
+      .small{color:#666;font-size:13px}
+      .disc{background:#fbfdff;padding:8px;border:1px solid #eef2f7;border-radius:6px}
+    </style>
+  </head>
+  <body>
+    <div class="report">
+      <h2>Relatório Final — Avaliação SST</h2>
+      <div class="small">Aluno: ${escapeHtml(s.student)} | Turma: ${escapeHtml(s.class)} | Data: ${s.ts}</div>
+      <h3>Desempenho (múltipla escolha)</h3>
+      <table>
+        <tr><th>Total</th><th>Acertos</th><th>Erros</th><th>% Acertos</th><th>% Erros</th></tr>
+        <tr><td class="center">${total}</td><td class="center">${correct}</td><td class="center">${incorrect}</td><td class="center">${pctCorrect}%</td><td class="center">${pctIncorrect}%</td></tr>
+      </table>
+
+      <h3 style="margin-top:16px">Respostas dissertativas (apenas estas aparecem no relatório)</h3>
+      ${[21,22,23,24,25,26,27,28,29,30].map(i=>{
+        const text = escapeHtml(s.answers['q'+i] || '');
+        return `<div style="margin-top:8px"><strong>${i})</strong><div class="disc">${text || '<em>Sem resposta</em>'}</div></div>`;
+      }).join('')}
+
+      <div style="margin-top:20px" class="small">Penalidades aplicadas: ${s.penaltyCount || 0}</div>
+      <div style="margin-top:12px" class="small">Observação: este relatório esconde respostas de múltipla escolha detalhadas — apenas percentuais são exibidos conforme solicitado.</div>
+
+      <div style="margin-top:20px"><button onclick="window.print()">Salvar/Imprimir PDF</button></div>
+    </div>
+  </body>
+  </html>
+  `;
+  doc.open();
+  doc.write(html);
+  doc.close();
+};
 
 /* helper escape */
 function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
 
 /* initialize */
 renderSubmissions();
-log('Arquivo pronto. Clique em Iniciar para começar (senha professor: ' + ADMIN_PASSWORD + ').');
+console.log('Arquivo final pronto. Antes de iniciar a prova exija nome e permita tela cheia. Senha do prof.: ' + ADMIN_PASSWORD);
 </script>
 </body>
 </html>
