@@ -1,528 +1,186 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Avaliação SST — Arquivo Único (Final)</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Avaliação de Segurança e Automação</title>
 <style>
-  :root{--muted:#6b7280}
-  body{font-family:Arial, Helvetica, sans-serif;background:#f4f6f8;color:#111;margin:0;padding:16px}
-  .container{max-width:1100px;margin:0 auto}
-  .card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,.06)}
-  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-  h1{margin:0;font-size:1.25rem}
-  nav{margin:12px 0;display:flex;gap:8px}
-  button{background:#0b74da;color:white;border:0;padding:8px 12px;border-radius:6px;cursor:pointer}
-  .muted{color:var(--muted);font-size:0.95rem}
-  input, textarea, select{padding:8px;border-radius:6px;border:1px solid #cbd5e1;width:100%;box-sizing:border-box}
-  .row{display:flex;gap:12px}
-  .col{flex:1}
-  .q{padding:10px;border-radius:8px;background:#fbfdff;margin-bottom:10px;border:1px solid #eef2f7}
-  label{display:block;margin-bottom:6px}
-  .small{font-size:0.9rem;color:var(--muted)}
-  #overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.86);color:#fff;z-index:9999;flex-direction:column;padding:18px}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:8px;border-bottom:1px solid #e6edf3;text-align:left;font-size:0.9rem}
-  .timer{font-weight:700}
-  .timer.red{color:#b91c1c}
-  .hidden{display:none}
-  .controls{display:flex;gap:8px;flex-wrap:wrap}
-  .muted-box{background:#f1f5f9;padding:6px 10px;border-radius:6px}
-  footer{margin-top:12px;color:var(--muted);font-size:0.9rem}
-  pre{white-space:pre-wrap;word-break:break-word}
-  .btn-danger{background:#b91c1c}
-  .readonly{background:#f8fafc}
-  .report{max-width:800px;margin:0 auto;padding:18px;font-size:14px}
-  .report h2{margin-top:0}
-  .btn-small{padding:6px 8px;font-size:0.9rem}
+  body { font-family: Arial, sans-serif; margin: 20px; background-color: #f2f2f2; }
+  #quiz-container { display: none; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+  .question { margin-bottom: 20px; }
+  .options label { display: block; margin-bottom: 5px; }
+  button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+  button:hover { background: #0056b3; }
+  #result { display: none; background: #fff; margin-top: 20px; padding: 20px; border-radius: 10px; }
+  textarea { width: 100%; height: 80px; margin-top: 5px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 </head>
 <body>
-<div class="container">
-  <div class="card">
-    <header>
-      <div>
-        <h1>Avaliação — Saúde e Segurança do Trabalho</h1>
-        <div class="muted">Técnico em Automação Industrial — Duração: 1h30</div>
-      </div>
-      <div style="text-align:right">
-        <div class="muted-box">Arquivo único — local</div>
-      </div>
-    </header>
-
-    <nav>
-      <button id="tabExam">Prova (Alunos)</button>
-      <button id="tabAdmin">Painel (Professor)</button>
-    </nav>
-
-    <!-- EXAM -->
-    <section id="examArea">
-      <div class="card">
-        <div class="row" style="align-items:center">
-          <div class="col">
-            <div class="small">Aluno (Nome completo) <span style="color:#b91c1c">*</span></div>
-            <input id="studentName" placeholder="Ex: João da Silva" />
-          </div>
-          <div style="width:140px">
-            <div class="small">Turma</div>
-            <select id="studentClass"><option>1º B</option><option>1º F</option></select>
-          </div>
-          <div style="width:220px;text-align:right">
-            <div class="small">Tempo restante</div>
-            <div id="timer" class="timer">90:00</div>
-          </div>
-        </div>
-
-        <p class="muted" style="margin-top:10px">
-          Regras: antes de iniciar informe o nome e **entre em tela cheia** (o navegador pedirá autorização). Se você sair da aba/janela, será aplicada uma **penalidade fixa de 30 segundos** que bloqueia a prova até terminar.
-        </p>
-
-        <hr/>
-
-        <form id="examForm">
-          <div id="mcArea"></div>
-
-          <h3>Questões dissertativas (21-30)</h3>
-          <div id="discArea"></div>
-
-          <div class="controls" style="margin-top:8px">
-            <button id="startBtn" type="button">Iniciar (Tela cheia exigida)</button>
-            <button id="submitBtn" type="button">Enviar Avaliação</button>
-            <button id="cancelExam" type="button">Cancelar</button>
-          </div>
-        </form>
-
-        <div style="margin-top:12px">
-          <div class="small">(Logs ocultos ao aluno)</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ADMIN -->
-    <section id="adminArea" class="hidden">
-      <div class="card">
-        <h2>Painel do Professor</h2>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div><label>Senha:</label><input id="adminPw" type="password" /></div>
-          <div><button id="adminLogin">Entrar</button></div>
-          <div><button id="adminLogout" class="hidden">Sair</button></div>
-        </div>
-
-        <div id="adminMain" class="hidden" style="margin-top:12px">
-          <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
-            <div><strong>Professor:</strong> (acesso local)</div>
-            <div style="display:flex;gap:8px">
-              <button id="refreshData">Atualizar</button>
-              <button id="exportCsv">Exportar CSV</button>
-              <button id="clearData" class="btn-danger">Limpar dados</button>
-            </div>
-          </div>
-
-          <div style="margin-top:12px;max-height:520px;overflow:auto">
-            <table id="subsTable">
-              <thead><tr><th>Aluno</th><th>Turma</th><th>Início</th><th>Penalidades</th><th>TempoRest(s)</th><th>Ações</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div style="margin-top:12px" class="small">
-          Observação: as submissões ficam salvas no armazenamento local do navegador (localStorage). Use Exportar CSV ou Gerar PDF por aluno para arquivar.
-        </div>
-      </div>
-    </section>
-
-    <footer class="muted" style="margin-top:10px">Mantenha backups exportando o CSV. Para maior segurança aplique supervisão presencial.</footer>
+  <div id="name-modal">
+    <h2>Bem-vindo à Avaliação</h2>
+    <label>Digite seu nome para iniciar:</label>
+    <input type="text" id="userName" />
+    <button id="start-btn">Iniciar Avaliação</button>
   </div>
-</div>
 
-<!-- Overlay penalidade -->
-<div id="overlay">
-  <h2>Penalidade aplicada</h2>
-  <div id="overlayMsg">Você saiu da aba. Aguarde 30 segundos para retomar a avaliação.</div>
-  <div id="countdown" style="font-size:2rem;margin-top:8px">30</div>
-  <div class="small" style="margin-top:8px">Permaneça nesta tela até o contador zerar; depois a prova será liberada.</div>
-</div>
+  <div id="quiz-container"></div>
 
-<!-- template para relatório (oculto) -->
-<div id="reportTemplate" class="hidden"></div>
+  <div id="result"></div>
 
-<script>
-/* ---------------- CONFIG ---------------- */
-const ADMIN_PASSWORD = '159357';
-const PENALTY_SECONDS = 30;        // fixed penalty
-const TOTAL_SECONDS = 90 * 60;     // 1h30
-const STORAGE_KEY = 'avaliacao_sst_submissions_final';
-const GABARITO = {
-  // keys for q1..q20 (correct answers chosen based on content)
-  q1: "Prevenir acidentes e proteger trabalhadores",
-  q2: "Ministério do Trabalho e Previdência",
-  q3: "Identificar padrões e prevenir ocorrências",
-  q4: "Tempo de paralisação e perda de produtividade",
-  q5: "Extintores, alarmes e rotas de fuga",
-  q6: "Deve ser fornecido gratuitamente pela empresa e adequado ao risco",
-  q7: "Segurança em instalações e serviços em eletricidade",
-  q8: "Segurança no trabalho em máquinas e equipamentos",
-  q9: "Ruído e vibração",
-  q10: "Vapores, poeiras e gases",
-  q11: "Impedir acesso às partes móveis e ser segura para manutenção",
-  q12: "Reduzir absenteísmo e custos com afastamentos",
-  q13: "Perda de produtividade prolongada", // NOT included as direct cost -> but user asked "NÃO incluem" — set correct as first option (we'll handle as incorrect if chosen). To reduce ambiguity, we'll treat the correct answer for q13 as "Despesas médicas"?? To avoid confusion, we will treat the 'best' correct as the option that is NOT "custos diretos" — but this is messy. Instead we'll mark the intended correct here:
-  // To be safe set q13 correct to "Reparo de equipamento danificado" (assuming it's direct) -- but consistency matters.
-};
- // For q13 we must pick correct. We'll set GABARITO.q13 = "Reparo de equipamento danificado"
-GABARITO.q13 = "Reparo de equipamento danificado";
+  <script defer>
+    const quizData = [
+      { question: '1. A segurança do trabalho tem como principal objetivo:', options: ['Reduzir os custos da empresa.', 'Evitar multas e processos.', 'Prevenir acidentes e proteger a integridade física e mental do trabalhador.', 'Cumprir exigências legais apenas.'], correct: 2 },
+      { question: '2. Uma empresa que valoriza a segurança investe em:', options: ['Apenas equipamentos novos.', 'Treinamento contínuo e cultura de prevenção.', 'Campanhas de marketing interno.', 'Uniformes padronizados sem instrução de uso.'], correct: 1 },
+      { question: '3. O órgão federal responsável por fiscalizar o cumprimento das normas trabalhistas, incluindo segurança, é:', options: ['CREA', 'IBAMA', 'Ministério do Trabalho', 'CIPA'], correct: 2 },
+      { question: '4. As Normas Regulamentadoras (NRs) são publicadas e fiscalizadas por:', options: ['Ministério da Saúde', 'Ministério do Trabalho e Emprego', 'INMETRO', 'Corpo de Bombeiros'], correct: 1 },
+      { question: '5. Em um ambiente industrial, a análise estatística de acidentes serve para:', options: ['Registrar apenas acidentes graves.', 'Identificar padrões e prevenir ocorrências futuras.', 'Alimentar relatórios administrativos sem utilidade prática.', 'Aumentar a burocracia interna.'], correct: 1 },
+      { question: '6. Sobre os custos dos acidentes de trabalho, é correto afirmar:', options: ['Envolvem apenas gastos com hospitalização.', 'Não afetam a produtividade.', 'Podem incluir prejuízos materiais, humanos e de imagem da empresa.', 'São sempre cobertos pelo seguro da empresa.'], correct: 2 },
+      { question: '7. Um Programa de Segurança da Empresa bem elaborado deve:', options: ['Ser genérico e igual para todas as empresas.', 'Adaptar-se aos riscos e processos específicos de cada ambiente.', 'Focar apenas em incêndios.', 'Ser feito apenas para cumprir auditorias.'], correct: 1 },
+      { question: '8. Os sistemas preventivos e de combate a incêndios incluem:', options: ['Extintores, alarmes e hidrantes.', 'Somente extintores.', 'Apenas saídas de emergência.', 'Luzes de emergência e câmeras.'], correct: 0 },
+      { question: '9. O EPI deve ser:', options: ['Escolhido pelo funcionário.', 'Fornecido gratuitamente e adequado ao risco.', 'Comprado pelo trabalhador.', 'Usado apenas em fiscalizações.'], correct: 1 },
+      { question: '10. A NR 10 trata de:', options: ['Máquinas e equipamentos.', 'Eletricidade.', 'Ergonomia.', 'Construção civil.'], correct: 1 },
+      { question: '11. A NR 12 trata de:', options: ['Segurança em máquinas e equipamentos.', 'Riscos biológicos.', 'Energia elétrica.', 'Escavações e demolições.'], correct: 0 },
+      { question: '12. A NR 5410 é uma norma técnica da ABNT que trata de:', options: ['Instalações elétricas de baixa tensão.', 'Prevenção de incêndios.', 'Instalações hidráulicas.', 'Segurança do trabalho em altura.'], correct: 0 },
+      { question: '13. Um exemplo de risco físico é:', options: ['Poeira.', 'Ruído.', 'Produto químico.', 'Vírus.'], correct: 1 },
+      { question: '14. Um risco químico está associado a:', options: ['Vibrações.', 'Radiações.', 'Vapores e gases.', 'Ferramentas manuais.'], correct: 2 },
+      { question: '15. Em eletricidade, o maior risco ocupacional está relacionado a:', options: ['Choque elétrico e arco voltaico.', 'Esforço físico repetitivo.', 'Ruído.', 'Temperatura ambiente.'], correct: 0 },
+      { question: '16. A proteção de máquinas e ferramentas deve:', options: ['Ser removida para facilitar manutenção.', 'Ser mantida sempre que houver partes móveis expostas.', 'Ser opcional, dependendo da experiência do operador.', 'Ser instalada apenas em equipamentos novos.'], correct: 1 },
+      { question: '17. O treinamento de segurança deve ocorrer:', options: ['Apenas quando há acidentes.', 'Antes do início das atividades e sempre que houver mudanças no processo.', 'Uma vez por ano.', 'Apenas quando exigido por auditorias.'], correct: 1 },
+      { question: '18. Um ambiente ecologicamente equilibrado depende de:', options: ['Ações isoladas da empresa.', 'Integração entre gestão ambiental e responsabilidade social.', 'Apenas da reciclagem de resíduos.', 'Proibição de produtos químicos.'], correct: 1 },
+      { question: '19. A poluição e a contaminação diferem porque:', options: ['Poluição é natural, contaminação é química.', 'Contaminação afeta diretamente seres vivos; poluição é mais ampla, afetando o meio como um todo.', 'São sinônimos.', 'Nenhuma delas é problema em ambiente industrial.'], correct: 1 },
+      { question: '20. A exploração consciente de energia e recursos minerais deve:', options: ['Visar apenas o lucro.', 'Desconsiderar impactos ambientais.', 'Respeitar licenças ambientais e princípios de sustentabilidade.', 'Ser terceirizada para evitar responsabilidades.'], correct: 2 }
+    ];
 
-/* UI refs */
-const tabExam = document.getElementById('tabExam'), tabAdmin = document.getElementById('tabAdmin');
-const examArea = document.getElementById('examArea'), adminArea = document.getElementById('adminArea');
-const mcArea = document.getElementById('mcArea'), discArea = document.getElementById('discArea');
-const startBtn = document.getElementById('startBtn'), submitBtn = document.getElementById('submitBtn');
-const cancelExam = document.getElementById('cancelExam');
-const timerEl = document.getElementById('timer');
-const overlay = document.getElementById('overlay'), countdownEl = document.getElementById('countdown');
-const adminPw = document.getElementById('adminPw'), adminLogin = document.getElementById('adminLogin'), adminLogout = document.getElementById('adminLogout');
-const adminMain = document.getElementById('adminMain'), subsTableBody = document.querySelector('#subsTable tbody');
-const refreshData = document.getElementById('refreshData'), exportCsv = document.getElementById('exportCsv'), clearData = document.getElementById('clearData');
+    const dissertativas = [
+      '21. Imagine que você é técnico de manutenção em uma indústria e observa que um colega realiza uma tarefa elétrica sem desligar o disjuntor. O que você faria nessa situação e como justificaria sua atitude com base na NR10?',
+      '22. Explique, com suas palavras, o que é segurança do trabalho e como ela pode impactar diretamente o sucesso de uma empresa.',
+      '23. Dê um exemplo de acidente de trabalho real (ou hipotético) que poderia ter sido evitado. Indique qual norma e qual EPI teriam evitado o acidente.',
+      '24. Compare: “risco físico” e “risco químico”. Dê um exemplo de cada um em um ambiente industrial de automação.',
+      '25. Explique como a NR5410 contribui para a segurança das instalações elétricas em uma planta automatizada.',
+      '26. Como um programa de segurança bem estruturado pode reduzir custos e aumentar a produtividade?',
+      '27. Em sua opinião, qual é o maior desafio na implementação de uma cultura de segurança dentro das empresas? Dê uma sugestão prática para melhorar isso.',
+      '28. Em relação ao meio ambiente, o que um técnico em automação pode fazer para evitar poluição e desperdício de energia em processos industriais?',
+      '29. Descreva uma situação real de risco que pode ocorrer com o uso incorreto de ferramentas elétricas e explique a forma correta de prevenção.',
+      '30. Cite e explique duas ações práticas que mostram o compromisso da empresa com a segurança e a sustentabilidade ambiental.'
+    ];
 
-/* tabs */
-tabExam.onclick = ()=>{ examArea.classList.remove('hidden'); adminArea.classList.add('hidden'); }
-tabAdmin.onclick = ()=>{ adminArea.classList.remove('hidden'); examArea.classList.add('hidden'); }
+    const quizContainer = document.getElementById('quiz-container');
+    const resultDiv = document.getElementById('result');
+    const nameModal = document.getElementById('name-modal');
 
-/* ---------- build MC questions and dissertativas ---------- */
-const mcQuestions = [
-  {q:'1) Qual a principal função da segurança do trabalho?', opts:['Reduzir custos a qualquer custo','Prevenir acidentes e proteger trabalhadores','Garantir horários de trabalho mais longos','Aumentar a quantidade de documentos financeiros']},
-  {q:'2) Qual órgão é responsável pela publicação das NRs no Brasil?', opts:['Ministério do Trabalho e Previdência','INMETRO','ANVISA','IBAMA']},
-  {q:'3) A análise estatística de acidentes serve para:', opts:['Identificar padrões e prevenir ocorrências','Somente justificar demissões','Substituir treinamentos por relatórios','Comprovante de pagamento de multas']},
-  {q:'4) Qual item representa custo indireto de um acidente?', opts:['Conta hospitalar do trabalhador','Tempo de paralisação e perda de produtividade','Compra de um novo equipamento','Substituição de EPI avariado']},
-  {q:'5) Um sistema preventivo de incêndio normalmente inclui:', opts:['Extintores, alarmes e rotas de fuga','Somente extintores','Apenas brigadeiros voluntários','Wi-Fi de alta velocidade']},
-  {q:'6) Sobre EPI é correto afirmar:', opts:['Deve ser fornecido gratuitamente pela empresa e adequado ao risco','Pode ser compartilhado entre trabalhadores sem higienização','O trabalhador paga pelo EPI','É opcional em ambientes administrativos']},
-  {q:'7) NR10 refere-se a:', opts:['Segurança em instalações e serviços em eletricidade','Proteção de máquinas','Gestão ambiental','Construções civis']},
-  {q:'8) NR12 trata de:', opts:['Segurança no trabalho em máquinas e equipamentos','Exposição a agentes biológicos','Segurança em altura','Transporte rodoviário']},
-  {q:'9) Riscos físicos incluem:', opts:['Ruído e vibração','Gasolina e solventes','Bactérias e vírus','Programas informaticos']},
-  {q:'10) Riscos químicos envolvem:', opts:['Vapores, poeiras e gases','Temperaturas frias','Luz intensa','Barulho']},
-  {q:'11) Proteção de máquinas deve:', opts:['Impedir acesso às partes móveis e ser segura para manutenção','Ser retirada sempre que possível','Ser apenas visual','Ser instalada apenas em máquinas novas']},
-  {q:'12) Um programa de segurança bem aplicado pode:', opts:['Reduzir absenteísmo e custos com afastamentos','Aumentar horas extras','Diminuir o número de treinamentos','Substituir supervisão']},
-  {q:'13) Custos diretos de um acidente normalmente NÃO incluem:', opts:['Perda de produtividade prolongada','Despesas médicas','Indenização e retrabalho','Reparo de equipamento danificado']},
-  {q:'14) Um sinal de risco elétrico em um painel é:', opts:['Fiação exposta, cheiro de queimado, faíscas','Paredes limpas','Luzes indicadoras apagadas sem fumaça','Somente aumento de temperatura sem outros sinais']},
-  {q:'15) Em caso de vazamento químico, a primeira ação correta é:', opts:['Isolar a área e advertir as pessoas próximas','Tentar neutralizar com água imediatamente','Ignorar e continuar o trabalho','Abrir janelas e sair sem avisar']},
-  {q:'16) Treinamento geral deve ocorrer:', opts:['No início das atividades e sempre que houver mudança de processo','Apenas no primeiro dia de trabalho','Somente quando há acidentes','Apenas para gestores']},
-  {q:'17) Para reduzir poluição em processos industriais deve-se:', opts:['Controlar emissões e tratar efluentes','Aumentar produção sem controles','Armazenar resíduos sem destino','Reduzir custos ignorando normas ambientais']},
-  {q:'18) Energia e recursos minerais devem ser explorados:', opts:['Com licenciamento e práticas sustentáveis','Sem autorização quando necessário','Com prioridade ao lucro imediato','Apenas por grandes empresas']},
-  {q:'19) Registro de eventos de segurança é importante porque:', opts:['Permite análise de causas e ações corretivas','Somente complica documentação','Serve só para processos trabalhistas','É irrelevante para empresas pequenas']},
-  {q:'20) Em uma inspeção, prioridade imediata é:', opts:['Remover risco iminente e sinalizar o local','Preencher relatórios primeiro','Mudar o trabalhador de setor sem avaliar','Desligar toda a fábrica sem planejamento']}
-];
+    document.getElementById('start-btn').addEventListener('click', () => {
+      const name = document.getElementById('userName').value.trim();
+      if (!name) {
+        alert('Por favor, digite seu nome antes de iniciar.');
+        return;
+      }
+      nameModal.style.display = 'none';
+      startQuiz(name);
+    });
 
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
+    function startQuiz(userName) {
+      let currentQuestion = 0;
+      let score = 0;
+      const answers = [];
 
-mcQuestions.forEach((it, idx) => {
-  const n = idx+1;
-  const div = document.createElement('div'); div.className='q';
-  const lbl = document.createElement('label'); lbl.innerText = it.q; div.appendChild(lbl);
-  const opts = shuffle([...it.opts]);
-  opts.forEach(opt => {
-    const wrap = document.createElement('label');
-    const inp = document.createElement('input');
-    inp.type='radio'; inp.name='q'+n; inp.value=opt; inp.required=true;
-    wrap.appendChild(inp); wrap.appendChild(document.createTextNode(' ' + opt));
-    div.appendChild(wrap);
-  });
-  mcArea.appendChild(div);
-});
+      function renderQuestion() {
+        const q = quizData[currentQuestion];
+        quizContainer.innerHTML = `<div class='question'><h3>${q.question}</h3><div class='options'>${q.options.map((opt, i) => `<label><input type='radio' name='option' value='${i}'> ${opt}</label>`).join('')}</div><button id='next-btn'>${currentQuestion === quizData.length - 1 ? 'Avançar para dissertativas' : 'Próxima'}</button></div>`;
 
-/* dissertativas 21-30 */
-const discPk = [
-"21) Você é designado para trabalhar em um painel elétrico energizado. Cite 3 medidas imediatas e um EPI obrigatório e justifique.",
-"22) Descreva um procedimento para identificação e correção de risco químico numa área de manutenção (3-5 passos).",
-"23) Explique como um Programa de Segurança pode reduzir custos diretos e indiretos — dê 2 exemplos práticos.",
-"24) Cite e explique 2 ações que a empresa pode tomar para evitar poluição/contaminação em um processo automatizado.",
-"25) Em um acidente com máquina, qual seria a sequência imediata de ações até a chegada do serviço médico? Detalhe 4 passos.",
-"26) Explique brevemente o que a NR12 exige para proteção de máquinas e uma medida que costuma ser negligenciada.",
-"27) Como você instruiria um novo operador sobre uso correto de EPI para trabalhos em altura? (3 passos)",
-"28) NR5410 (ABNT) trata de instalações elétricas. Dê um exemplo prático de como ela influencia uma planta automatizada.",
-"29) No seu ver, qual o maior risco físico em uma linha de produção automatizada e qual a medida preventiva mais efetiva?",
-"30) Cite duas ações práticas que mostram o compromisso da empresa com a segurança e a sustentabilidade ambiental."
-];
-discPk.forEach((txt,i)=>{
-  const idx = 21+i;
-  const d = document.createElement('div'); d.className='q';
-  const lab = document.createElement('label'); lab.innerHTML = `<strong>${idx})</strong> ${txt}<textarea name="q${idx}" required></textarea>`;
-  d.appendChild(lab); discArea.appendChild(d);
-});
+        document.getElementById('next-btn').addEventListener('click', () => {
+          const selected = document.querySelector('input[name="option"]:checked');
+          if (!selected) {
+            alert('Por favor, selecione uma resposta antes de continuar.');
+            return;
+          }
+          const answer = parseInt(selected.value);
+          answers.push(answer);
+          if (answer === q.correct) score++;
 
-/* ---------------- Session & timer ---------------- */
-let sessionId = sessionStorage.getItem('sessionId') || ('sess_'+Date.now().toString(36));
-sessionStorage.setItem('sessionId', sessionId);
-let penaltyCount = Number(sessionStorage.getItem('penaltyCount') || 0);
-let remaining = Number(sessionStorage.getItem('remaining_seconds') || TOTAL_SECONDS);
-let running = false;
-
-function log(msg){ /* logs hidden to student; still useful internally via console */ console.log(msg); }
-
-/* Timer */
-function formatTime(s){ const m=Math.floor(s/60), sec = s%60; return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
-timerEl.innerText = formatTime(remaining);
-if(remaining <= 600) timerEl.classList.add('red');
-
-let tickInterval = setInterval(()=>{
-  if(running && remaining > 0){
-    remaining--;
-    sessionStorage.setItem('remaining_seconds', remaining);
-    timerEl.innerText = formatTime(remaining);
-    if(remaining <= 600) timerEl.classList.add('red');
-    if(remaining <= 0){
-      running = false;
-      log('Tempo esgotado — enviando automaticamente.');
-      autoSubmit();
+          currentQuestion++;
+          if (currentQuestion < quizData.length) {
+            renderQuestion();
+          } else {
+            renderDissertativas(userName, score, answers);
+          }
+        });
+      }
+      quizContainer.style.display = 'block';
+      renderQuestion();
     }
-  }
-}, 1000);
 
-/* Visibility / Penalidade: fixed 30s on return */
-document.addEventListener('visibilitychange', () => {
-  if(document.hidden){
-    // register exit
-    penaltyCount++;
-    sessionStorage.setItem('penaltyCount', penaltyCount);
-    log('Saída detectada (penaltyCount=' + penaltyCount + ')');
-  } else {
-    if(penaltyCount > 0){
-      log('Retorno detectado — aplicando penalidade de ' + PENALTY_SECONDS + 's');
-      applyPenalty(PENALTY_SECONDS);
-    } else {
-      log('Retornou à aba');
+    function renderDissertativas(userName, score, answers) {
+      quizContainer.innerHTML = '<h2>Parte 2 – Questões Dissertativas</h2>';
+      dissertativas.forEach(q => {
+        quizContainer.innerHTML += `<div class='question'><p>${q}</p><textarea placeholder='Digite sua resposta aqui...'></textarea></div>`;
+      });
+      quizContainer.innerHTML += '<button id="finish-btn">Finalizar Avaliação</button>';
+
+      document.getElementById('finish-btn').addEventListener('click', () => {
+        const texts = Array.from(document.querySelectorAll('textarea')).map(t => t.value.trim());
+        if (texts.some(t => t === '')) {
+          alert('Por favor, responda todas as questões dissertativas antes de finalizar.');
+          return;
+        }
+        showResult(userName, score, answers, texts);
+      });
     }
-  }
-});
 
-let penaltyActive = false;
-function applyPenalty(seconds){
-  if(penaltyActive) return;
-  penaltyActive = true;
-  overlay.style.display = 'flex';
-  countdownEl.innerText = seconds;
-  const prev = running;
-  running = false;
-  let s = seconds;
-  const t = setInterval(()=>{
-    s--;
-    countdownEl.innerText = s;
-    if(s <= 0){
-      clearInterval(t);
-      overlay.style.display = 'none';
-      penaltyActive = false;
-      running = prev;
-      log('Penalidade finalizada');
+    function showResult(userName, score, answers, texts) {
+      quizContainer.style.display = 'none';
+      const percentage = ((score / quizData.length) * 100).toFixed(2);
+      let html = `<h2>Resultado Final</h2><p><strong>Nome:</strong> ${userName}</p><p><strong>Acertos:</strong> ${score}</p><p><strong>Erros:</strong> ${quizData.length - score}</p><p><strong>Percentual de acerto:</strong> ${percentage}%</p>`;
+      resultDiv.innerHTML = html + '<button id="pdf-btn">Gerar PDF</button>';
+      resultDiv.style.display = 'block';
+
+      document.getElementById('pdf-btn').addEventListener('click', () => generatePDF(userName, score, answers, percentage, texts));
     }
-  }, 1000);
-}
 
-/* Start button: require name and require fullscreen */
-startBtn.addEventListener('click', async () => {
-  const name = document.getElementById('studentName').value.trim();
-  if(!name){ alert('Digite seu nome completo antes de iniciar.'); return; }
-  // request fullscreen; require it
-  try{
-    await document.documentElement.requestFullscreen();
-  }catch(e){
-    alert('Para garantir integridade da prova é necessário permitir tela cheia. Clique "Iniciar" e aceite tela cheia no navegador.'); return;
-  }
-  // check fullscreen
-  if(!document.fullscreenElement){
-    alert('É necessário permitir tela cheia para iniciar a prova. Tente novamente e permita a tela cheia quando o navegador solicitar.');
-    return;
-  }
-  // set timer if not already
-  if(!sessionStorage.getItem('remaining_seconds')){
-    remaining = TOTAL_SECONDS;
-    sessionStorage.setItem('remaining_seconds', remaining);
-  } else {
-    remaining = Number(sessionStorage.getItem('remaining_seconds'));
-  }
-  running = true;
-  log('Prova iniciada em tela cheia para ' + name);
-});
+    function generatePDF(userName, score, answers, percentage, texts) {
+      if (!window.jspdf) {
+        alert('Biblioteca jsPDF não carregada.');
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let y = 10;
+      doc.text(`Relatório de Avaliação - Segurança e Automação`, 10, y); y += 10;
+      doc.text(`Nome: ${userName}`, 10, y); y += 10;
+      doc.text(`Acertos: ${score}`, 10, y); y += 10;
+      doc.text(`Erros: ${quizData.length - score}`, 10, y); y += 10;
+      doc.text(`Percentual: ${percentage}%`, 10, y); y += 10;
 
-/* Submissão manual */
-submitBtn.addEventListener('click', () => {
-  if(penaltyActive){ alert('Você está em penalidade. Aguarde antes de enviar.'); return; }
-  const name = document.getElementById('studentName').value.trim();
-  if(!name){ alert('Digite seu nome completo antes de enviar.'); return; }
-  sendSubmission(false);
-});
+      quizData.forEach((q, i) => {
+        y += 10;
+        doc.text(`${i+1}. ${q.question}`, 10, y);
+        q.options.forEach((opt, idx) => {
+          y += 8;
+          const mark = idx === q.correct ? '(Correta)' : '';
+          if (idx === q.correct) {
+            doc.setTextColor(0, 150, 0);
+          } else if (answers[i] === idx) {
+            doc.setTextColor(255, 0, 0);
+          } else {
+            doc.setTextColor(0, 0, 0);
+          }
+          doc.text(`- ${opt} ${mark}`, 14, y);
+        });
+      });
 
-/* auto submit when timer ends */
-function autoSubmit(){ if(penaltyActive){ setTimeout(autoSubmit, 2000); return; } sendSubmission(true); }
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+      doc.text('Parte 2 – Questões Dissertativas', 10, y); y += 10;
+      dissertativas.forEach((q, i) => {
+        doc.text(`${q}`, 10, y); y += 8;
+        const resposta = texts[i] || ''; 
+        const lines = doc.splitTextToSize(`Resposta: ${resposta}`, 180);
+        lines.forEach(line => { y += 6; if (y > 280) { doc.addPage(); y = 10; } doc.text(line, 10, y); });
+        y += 10;
+      });
 
-function gatherAnswers(){
-  const answers = {};
-  for(let i=1;i<=20;i++){
-    const v = document.querySelector('input[name="q'+i+'"]:checked');
-    answers['q'+i] = v ? v.value : '';
-  }
-  for(let i=21;i<=30;i++){
-    const ta = document.querySelector('textarea[name="q'+i+'"]');
-    answers['q'+i] = ta ? ta.value.trim() : '';
-  }
-  return answers;
-}
-
-function sendSubmission(isAuto){
-  const name = document.getElementById('studentName').value.trim();
-  const clas = document.getElementById('studentClass').value;
-  const answers = gatherAnswers();
-  const payload = {
-    id: 'sub_' + Date.now().toString(36),
-    sessionId,
-    student: name,
-    class: clas,
-    ts: new Date().toISOString(),
-    penaltyCount: penaltyCount,
-    remaining: remaining,
-    answers: answers,
-    auto: !!isAuto
-  };
-  const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  arr.push(payload);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-  // reset session values
-  sessionStorage.removeItem('penaltyCount');
-  sessionStorage.removeItem('remaining_seconds');
-  penaltyCount = 0; running = false;
-  // exit fullscreen if possible
-  try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
-  alert('Prova enviada com sucesso.');
-}
-
-/* cancel */
-cancelExam.addEventListener('click', ()=>{ if(confirm('Cancelar a avaliação? Respostas não enviadas serão perdidas.')) location.reload(); });
-
-/* ---------- Admin ---------- */
-adminLogin.addEventListener('click', ()=>{
-  if(adminPw.value === ADMIN_PASSWORD){
-    adminPw.value = '';
-    adminMain.classList.remove('hidden');
-    adminLogout.classList.remove('hidden');
-    adminLogin.classList.add('hidden');
-    renderSubmissions();
-  } else alert('Senha incorreta');
-});
-adminLogout.addEventListener('click', ()=>{
-  adminMain.classList.add('hidden');
-  adminLogout.classList.add('hidden');
-  adminLogin.classList.remove('hidden');
-});
-
-function renderSubmissions(){
-  const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  subsTableBody.innerHTML = '';
-  arr.forEach(s=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(s.student)}</td><td>${escapeHtml(s.class)}</td><td>${s.ts}</td><td>${s.penaltyCount||0}</td><td>${s.remaining||0}</td>
-      <td>
-        <button class="btn-small" data-id="${s.id}" onclick="generatePdfFor('${s.id}')">Relatório PDF</button>
-      </td>`;
-    subsTableBody.appendChild(tr);
-  });
-}
-
-/* Export CSV (all fields) */
-exportCsv.addEventListener('click', ()=>{
-  const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  if(!arr.length){ alert('Nenhuma submissão para exportar.'); return; }
-  const rows = arr.map(s=>{
-    const answers = JSON.stringify(s.answers).replace(/"/g,'""');
-    return `"${s.student}","${s.class}","${s.ts}","${s.penaltyCount || 0}","${s.remaining || 0}","${answers}"`;
-  });
-  const csv = 'Aluno,Turma,Início,Penalidades,TempoRest(s),Respostas\n' + rows.join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'avaliacoes_sst_export.csv'; a.click(); URL.revokeObjectURL(url);
-});
-
-/* Clear data */
-clearData.addEventListener('click', ()=>{
-  if(confirm('Apagar todas as submissões? Esta ação não tem volta.')){
-    localStorage.removeItem(STORAGE_KEY);
-    renderSubmissions();
-    alert('Dados apagados.');
-  }
-});
-
-/* ---------- PDF report generation ---------- */
-/* This function builds a printable report for a single submission and opens print dialog (save as PDF) */
-window.generatePdfFor = function(id){
-  const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  const s = arr.find(x => x.id === id);
-  if(!s){ alert('Submissão não encontrada'); return; }
-
-  // calculate correct/incorrect for q1..q20
-  let correct = 0;
-  let total = 20;
-  for(let i=1;i<=20;i++){
-    const key = 'q'+i;
-    const answer = s.answers[key] || '';
-    if(answer && GABARITO[key] && answer === GABARITO[key]) correct++;
-  }
-  const incorrect = total - correct;
-  const pctCorrect = Math.round((correct/total)*100);
-  const pctIncorrect = 100 - pctCorrect;
-
-  // Build report HTML (only show discursive answers 21-30)
-  const reportWin = window.open('', '_blank', 'noopener');
-  const doc = reportWin.document;
-  const title = `Relatório - ${s.student}`;
-  const html = `
-  <html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>${title}</title>
-    <style>
-      body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#111}
-      .report{max-width:800px;margin:0 auto}
-      h2{margin-bottom:6px}
-      table{width:100%;border-collapse:collapse;margin-top:10px}
-      td,th{padding:8px;border:1px solid #ddd;text-align:left}
-      .center{text-align:center}
-      .small{color:#666;font-size:13px}
-      .disc{background:#fbfdff;padding:8px;border:1px solid #eef2f7;border-radius:6px}
-    </style>
-  </head>
-  <body>
-    <div class="report">
-      <h2>Relatório Final — Avaliação SST</h2>
-      <div class="small">Aluno: ${escapeHtml(s.student)} | Turma: ${escapeHtml(s.class)} | Data: ${s.ts}</div>
-      <h3>Desempenho (múltipla escolha)</h3>
-      <table>
-        <tr><th>Total</th><th>Acertos</th><th>Erros</th><th>% Acertos</th><th>% Erros</th></tr>
-        <tr><td class="center">${total}</td><td class="center">${correct}</td><td class="center">${incorrect}</td><td class="center">${pctCorrect}%</td><td class="center">${pctIncorrect}%</td></tr>
-      </table>
-
-      <h3 style="margin-top:16px">Respostas dissertativas (apenas estas aparecem no relatório)</h3>
-      ${[21,22,23,24,25,26,27,28,29,30].map(i=>{
-        const text = escapeHtml(s.answers['q'+i] || '');
-        return `<div style="margin-top:8px"><strong>${i})</strong><div class="disc">${text || '<em>Sem resposta</em>'}</div></div>`;
-      }).join('')}
-
-      <div style="margin-top:20px" class="small">Penalidades aplicadas: ${s.penaltyCount || 0}</div>
-      <div style="margin-top:12px" class="small">Observação: este relatório esconde respostas de múltipla escolha detalhadas — apenas percentuais são exibidos conforme solicitado.</div>
-
-      <div style="margin-top:20px"><button onclick="window.print()">Salvar/Imprimir PDF</button></div>
-    </div>
-  </body>
-  </html>
-  `;
-  doc.open();
-  doc.write(html);
-  doc.close();
-};
-
-/* helper escape */
-function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]); }
-
-/* initialize */
-renderSubmissions();
-console.log('Arquivo final pronto. Antes de iniciar a prova exija nome e permita tela cheia. Senha do prof.: ' + ADMIN_PASSWORD);
-</script>
+      doc.save(`${userName.replace(/\s+/g,'_')}_Avaliacao.pdf`);
+    }
+  </script>
 </body>
 </html>
